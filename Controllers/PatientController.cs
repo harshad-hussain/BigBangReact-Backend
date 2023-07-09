@@ -2,11 +2,14 @@
 using BigBang2.Interface;
 using BigBang2.Models;
 using BigBang2.Repository.Interface;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
+
 [Route("api/[controller]")]
 [ApiController]
+
 public class PatientController : ControllerBase
 {
     private readonly IPatient _patientRepository;
@@ -15,14 +18,14 @@ public class PatientController : ControllerBase
     {
         _patientRepository = patientRepository;
     }
-
+ //   [Authorize(Roles = ("Admin,Patient,Doctor"))]
     [HttpGet]
     public async Task<ActionResult<IEnumerable<Patient>>> GetPatients()
     {
         var patients = await _patientRepository.GetPatients();
         return Ok(patients);
     }
-
+   // [Authorize(Roles = "Patient,Admin")]
     [HttpGet("{id}")]
     public async Task<ActionResult<Patient>> GetPatient(int id)
     {
@@ -35,13 +38,23 @@ public class PatientController : ControllerBase
 
         return Ok(patient);
     }
-
+  //  [Authorize(Roles = ("Patient,Admin"))]
     [HttpPut("{id}")]
-    public async Task<IActionResult> PutPatient(int id, Patient patient)
+    public async Task<IActionResult> PutPatient(int id, [FromForm] Patient patient, IFormFile? imageFile)
     {
         if (id != patient.PatientId)
         {
             return BadRequest();
+        }
+
+        if (imageFile != null && imageFile.Length > 0)
+        {
+            var imageData = await ConvertImageToByteArray(imageFile);
+            patient.PatientImg = imageData;
+        }
+        else
+        {
+            patient.PatientImg = null;
         }
 
         try
@@ -62,23 +75,20 @@ public class PatientController : ControllerBase
 
         return NoContent();
     }
-
+   
     [HttpPost]
-    public async Task<ActionResult<Patient>> PostPatient(IFormFile imageFile, [FromForm] Patient patient)
+    public async Task<ActionResult<Patient>> PostPatient([FromForm] Patient patient, IFormFile? imageFile)
     {
-        if (imageFile == null || imageFile.Length <= 0)
+        if (imageFile != null && imageFile.Length > 0)
         {
-            return BadRequest("Image file is required.");
+            var imageData = await ConvertImageToByteArray(imageFile);
+            patient.PatientImg = imageData;
         }
-
-        var imageData = await ConvertImageToByteArray(imageFile);
-        patient.PatientImg = imageData;
 
         var createdPatient = await _patientRepository.PostPatient(patient);
 
-        return createdPatient.Result;
+        return createdPatient;
     }
-
     private async Task<byte[]> ConvertImageToByteArray(IFormFile imageFile)
     {
         using (var memoryStream = new MemoryStream())
@@ -87,7 +97,7 @@ public class PatientController : ControllerBase
             return memoryStream.ToArray();
         }
     }
-
+    
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeletePatient(int id)
     {

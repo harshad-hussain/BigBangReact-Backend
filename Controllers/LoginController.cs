@@ -13,6 +13,7 @@ using BigBang2.Models;
 
 namespace RealEstate2.Controllers
 {
+    
     [Route("api/[controller]")]
     [ApiController]
     public class LoginController : ControllerBase
@@ -44,8 +45,8 @@ namespace RealEstate2.Controllers
                         new Claim(JwtRegisteredClaimNames.Sub, _configuration["Jwt:Subject"]),
                         new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
                         new Claim(JwtRegisteredClaimNames.Iat, DateTime.UtcNow.ToString()),
-                        new Claim("DocId", user.DocId.ToString()),
                         new Claim("DocEmail", user.DocEmail),
+                        new Claim("DocPas", user.DocPas),
                         new Claim(ClaimTypes.Role, DoctorRole)
                     };
 

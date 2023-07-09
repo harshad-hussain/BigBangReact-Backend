@@ -2,14 +2,19 @@
 // DoctorController.cs
 using BigBang2.Models;
 using BigBang2.Repository.Interface;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 
 namespace BigBang2.Controllers
 {
+   
+
     [Route("api/[controller]")]
+    
     [ApiController]
+    
     public class DoctorController : ControllerBase
     {
         private readonly IDoctor<Doctor> _doctorRepository;
@@ -18,7 +23,7 @@ namespace BigBang2.Controllers
         {
             _doctorRepository = doctorRepository;
         }
-
+     // [Authorize(Roles = "Patient,Admin,Doctor")]
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Doctor>>> GetDoctors()
         {
@@ -39,19 +44,19 @@ namespace BigBang2.Controllers
             return Ok(doctor);
         }
 
-        [HttpGet("search/active/{isActive}")]
-        public async Task<IActionResult> SearchDoctorsByActiveStatus(bool isActive)
-        {
-            try
-            {
-                var doctors = await _doctorRepository.GetDoctorsByActiveStatus(isActive);
-                return Ok(doctors);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(StatusCodes.Status500InternalServerError, ex.Message);
-            }
-        }
+        //[HttpGet("search/active/{isActive}")]
+        //public async Task<IActionResult> SearchDoctorsByActiveStatus(bool isActive)
+        //{
+        //    try
+        //    {
+        //        var doctors = await _doctorRepository.GetDoctorsByActiveStatus(isActive);
+        //        return Ok(doctors);
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        return StatusCode(StatusCodes.Status500InternalServerError, ex.Message);
+        //    }
+        //}
 
         [HttpGet("search/specialty/{specialty}")]
         public async Task<IActionResult> SearchDoctorsBySpecialty(string specialty)
@@ -67,9 +72,9 @@ namespace BigBang2.Controllers
             }
         }
 
-        // PUT: api/Doctor/5
+       //  [Authorize(Roles = "Admin,Doctor")]
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateDoctor(int id, [FromForm] Doctor doctor, IFormFile imageFile)
+        public async Task<IActionResult> UpdateDoctor(int id, [FromForm] Doctor doctor, IFormFile? imageFile)
         {
             if (id != doctor.DocId)
             {
@@ -80,6 +85,11 @@ namespace BigBang2.Controllers
             {
                 var imageData = await ConvertImageToByteArray(imageFile);
                 doctor.DocImg = imageData;
+            }
+
+            else
+            {
+                doctor.DocImg = null;
             }
 
             try
@@ -110,22 +120,37 @@ namespace BigBang2.Controllers
             }
         }
 
+        // [HttpPost]
+        //public async Task<ActionResult<Doctor>> PostDoctor(IFormFile imageFile, [FromForm] Doctor doctor)
+        //{
+        //    if (imageFile == null || imageFile.Length <= 0)
+        //    {
+        //        return BadRequest("Image file is required.");
+        //    }
+
+        //    var imageData = await ConvertImageToByteArray(imageFile);
+        //    doctor.DocImg = imageData;
+
+        //    await _doctorRepository.Add(doctor);
+
+        //    return CreatedAtAction("GetDoctor", new { id = doctor.DocId }, doctor);
+        //}
+    //    [Authorize(Roles = "Admin,Doctor")]
         [HttpPost]
-        public async Task<ActionResult<Doctor>> PostDoctor(IFormFile imageFile, [FromForm] Doctor doctor)
+        public async Task<ActionResult<Doctor>> PostDoctor(IFormFile? imageFile, [FromForm] Doctor doctor)
         {
-            if (imageFile == null || imageFile.Length <= 0)
+            if (imageFile != null && imageFile.Length > 0)
             {
-                return BadRequest("Image file is required.");
+                var imageData = await ConvertImageToByteArray(imageFile);
+                doctor.DocImg = imageData;
             }
 
-            var imageData = await ConvertImageToByteArray(imageFile);
-            doctor.DocImg = imageData;
-
+            doctor.Status = "Pending";
             await _doctorRepository.Add(doctor);
 
             return CreatedAtAction("GetDoctor", new { id = doctor.DocId }, doctor);
         }
-
+     //    [Authorize(Roles = "Admin,Doctor")]
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteDoctor(int id)
         {
@@ -138,6 +163,15 @@ namespace BigBang2.Controllers
             await _doctorRepository.Delete(doctor);
 
             return NoContent();
+        }
+
+        // GET: api/Doctor/ApprovedDoctors
+        [HttpGet("ApprovedDoctors")]
+        public async Task<ActionResult<IEnumerable<Doctor>>> GetApprovedDoctors()
+        {
+            var approvedDoctors = await _doctorRepository.GetAll();
+            var filteredDoctors = approvedDoctors.Where(d => d.Status == "Approved");
+            return Ok(filteredDoctors);
         }
     }
 }

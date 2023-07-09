@@ -6,9 +6,11 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using BigBang2.Models;
+using Microsoft.AspNetCore.Authorization;
 
 namespace BigBangReact2.Controllers
 {
+    
     [Route("api/[controller]")]
     [ApiController]
     public class AdminsController : ControllerBase
@@ -115,9 +117,55 @@ namespace BigBangReact2.Controllers
             return NoContent();
         }
 
+
         private bool AdminExists(int id)
         {
             return (_context.Admins?.Any(e => e.AdminId == id)).GetValueOrDefault();
+        }
+
+        [HttpGet("DoctorRequests")]
+        public async Task<ActionResult<IEnumerable<Doctor>>> GetDoctorRequests()
+        {
+            // Retrieve all doctors with status "Pending"
+            var doctorRequests = await _context.Doctors.Where(d => d.Status == "Pending").ToListAsync();
+            return Ok(doctorRequests);
+        }
+
+        // POST: api/Admins/ApproveDoctorRequest/5
+        [HttpPost("ApproveDoctorRequest/{id}")]
+        public async Task<IActionResult> ApproveDoctorRequest(int id)
+        {
+            var doctor = await _context.Doctors.FindAsync(id);
+            if (doctor == null)
+            {
+                return NotFound();
+            }
+
+            // Update the status of the doctor to "Approved"
+            doctor.Status = "Approved";
+            _context.Entry(doctor).Property(x => x.Status).IsModified = true;
+
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                if (!DoctorExists(id))
+                {
+                    return NotFound();
+                }
+                else
+                {
+                    throw;
+                }
+            }
+
+            return NoContent();
+        }
+        private bool DoctorExists(int id)
+        {
+            return _context.Doctors.Any(e => e.DocId == id);
         }
     }
 }

@@ -1,10 +1,11 @@
-using BigBang2.Models;
+using Microsoft.EntityFrameworkCore;
 using BigBang2.Repoitory;
+using BigBang2.Models;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using BigBang2.Repository.Interface;
 using BigBang2.Repository;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.EntityFrameworkCore;
-using BigBang2.Interface;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
 using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -16,7 +17,6 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new OpenApiInfo { Title = "Your API Name", Version = "v1" });
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Name = "Authorization",
@@ -41,6 +41,7 @@ builder.Services.AddSwaggerGen(c =>
         }
     });
 });
+
 builder.Services.AddDbContext<HospitalContext>(op => op.UseSqlServer(builder.Configuration.GetConnectionString("con")));
 builder.Services.AddControllers().AddNewtonsoftJson(Options =>
 {
@@ -49,7 +50,8 @@ builder.Services.AddControllers().AddNewtonsoftJson(Options =>
 });
 builder.Services.AddScoped<IDoctor<Doctor>, DoctorRepo>();
 builder.Services.AddScoped<IPatient, PatientRepo>();
-builder.Services.AddScoped<IAdmin, AdminRepo>();
+
+
 
 // Adding Authentication
 builder.Services.AddAuthentication(options =>
@@ -57,6 +59,30 @@ builder.Services.AddAuthentication(options =>
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
     options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
     options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+// Adding Jwt Bearer
+.AddJwtBearer(options =>
+{
+    options.SaveToken = true;
+    options.RequireHttpsMetadata = false;
+    options.TokenValidationParameters = new TokenValidationParameters()
+    {
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidAudience = builder.Configuration["JWT:Audience"],
+        ValidIssuer = builder.Configuration["JWT:Issuer"],
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["JWT:Key"]))
+    };
+});
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("MyCorsPolicy", builder =>
+    {
+        builder.AllowAnyOrigin();
+        builder.AllowAnyMethod();
+        builder.AllowAnyHeader();
+    });
+
 });
 
 
@@ -67,11 +93,11 @@ if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
-    app.UseSwaggerUI(c =>c.SwaggerEndpoint("/swagger/v1/swagger.json", "Your API Name v1"));
 }
 
 app.UseHttpsRedirection();
-
+app.UseAuthentication();
+app.UseCors("MyCorsPolicy");
 app.UseAuthorization();
 
 app.MapControllers();
